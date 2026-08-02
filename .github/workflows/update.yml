@@ -1,0 +1,54 @@
+name: Update mzmine
+
+on:
+  schedule:
+    # Mondays, 05:00 UTC
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # nix-update reads the version out of src.url (.../download/v${version}/...)
+      # and rewrites both version and hash in pkgs/mzmine/package.nix.
+      - name: Run nix-update
+        run: nix run nixpkgs#nix-update -- --flake --version=stable mzmine
+
+      - name: Detect change
+        id: diff
+        run: |
+          if git diff --quiet -- pkgs/mzmine/package.nix; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$(nix eval --raw .#mzmine.version)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the update
+        if: steps.diff.outputs.changed == 'true'
+        run: nix build .#mzmine -L
+
+      - uses: peter-evans/create-pull-request@v7
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          commit-message: "mzmine: update to ${{ steps.diff.outputs.version }}"
+          title: "mzmine: update to ${{ steps.diff.outputs.version }}"
+          body: |
+            Automated update produced by `nix-update`.
+
+            Upstream release notes:
+            https://github.com/mzmine/mzmine/releases/tag/v${{ steps.diff.outputs.version }}
+          branch: update/mzmine
+          delete-branch: true

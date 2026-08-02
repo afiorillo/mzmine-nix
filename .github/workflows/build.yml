@@ -1,0 +1,47 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The upstream .deb is ~300 MB and the build output ~350 MB; the default
+      # hosted runner image leaves too little room, so reclaim what we can.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - uses: cachix/cachix-action@v16
+        # Skips cleanly on forks and before the secret is configured.
+        if: ${{ env.CACHIX_AUTH_TOKEN != '' }}
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        with:
+          name: mzmine-nix
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Build mzmine
+        run: nix build .#mzmine -L
+
+      - name: Report closure size
+        run: nix path-info -Sh ./result
+
+      - name: Run checks
+        run: nix flake check -L
