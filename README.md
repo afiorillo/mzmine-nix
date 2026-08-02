@@ -10,25 +10,28 @@ lifted into nixpkgs later with minimal changes.
 
 ## Install
 
-mzmine is marked **unfree** (see [Licensing](#licensing)), so you need to allow it.
+mzmine is marked **unfree** (see [Licensing](#licensing)). `flake.nix` and `default.nix`
+each instantiate nixpkgs with `config.allowUnfree = true`, so installing from this
+repository works as-is. The overlay is the exception: it is governed by *your* nixpkgs
+config, so allow mzmine there yourself.
 
 ### Try it without installing
 
 ```sh
-NIXPKGS_ALLOW_UNFREE=1 nix run --impure github:<user>/mzmine-nix
+nix run github:afiorillo/mzmine-nix
 ```
 
 ### Imperative install
 
 ```sh
-NIXPKGS_ALLOW_UNFREE=1 nix profile install --impure github:<user>/mzmine-nix#mzmine
+nix profile install github:afiorillo/mzmine-nix#mzmine
 ```
 
 ### NixOS / home-manager, via the overlay
 
 ```nix
 {
-  inputs.mzmine-nix.url = "github:<user>/mzmine-nix";
+  inputs.mzmine-nix.url = "github:afiorillo/mzmine-nix";
 
   # in your configuration:
   nixpkgs.overlays = [ inputs.mzmine-nix.overlays.default ];
@@ -43,8 +46,10 @@ NIXPKGS_ALLOW_UNFREE=1 nix profile install --impure github:<user>/mzmine-nix#mzm
 
 ### Without flakes
 
+Builds against your `<nixpkgs>` channel rather than the pinned `flake.lock`.
+
 ```sh
-NIXPKGS_ALLOW_UNFREE=1 nix-build --impure -A mzmine
+nix-build -A mzmine
 ./result/bin/mzmine
 ```
 
