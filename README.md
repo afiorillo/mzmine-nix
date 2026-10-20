@@ -68,8 +68,8 @@ behaviour, not a packaging artifact. Configuration and user files land in `~/.mz
 
 ## How this is packaged
 
-Upstream ships prebuilt [jpackage](https://docs.oracle.com/en/java/javase/25/jpackage/)
-app-images with their own jlink'd JDK 25 runtime embedded. This package repackages the
+Upstream ships prebuilt [jpackage](https://docs.oracle.com/en/java/javase/26/jpackage/)
+app-images with their own jlink'd JDK 26 runtime embedded. This package repackages the
 official `mzmine_<version>_amd64.deb` rather than building from source, because a source
 build would require closed-source `io.mzio:*` jars vendored as binaries in the upstream
 repo, build-time network downloads that bypass Gradle's dependency graph
@@ -78,14 +78,17 @@ and still would not reproduce the released product.
 
 Two things are needed to make the image run on NixOS:
 
-1. **`autoPatchelfHook`** over the ~36 shipped ELF files (the launcher,
-   `libapplauncher.so`, and the whole bundled JDK runtime), which otherwise expect
-   `/lib64/ld-linux-x86-64.so.2`.
+1. **`autoPatchelfHook`** over the ~74 shipped ELF files (the launcher,
+   `libapplauncher.so`, the whole bundled JDK runtime, and the self-contained .NET
+   runtimes of ThermoRawFileParser and SCIEX Wiff2 in `external_tools/`), which otherwise
+   expect `/lib64/ld-linux-x86-64.so.2`. CoreCLR's optional LTTng tracing provider
+   (`liblttng-ust.so.0`) is left unresolved.
 2. **An `LD_LIBRARY_PATH` wrapper.** JavaFX's native libraries are not files on disk — they
    live *inside* `javafx-graphics-*.jar`, `javafx-web-*.jar` and `javafx-media-*.jar`, and
    `NativeLibLoader` extracts them at runtime into `~/.openjfx/cache/`. Those copies never
    pass through `autoPatchelfHook`, so their dependencies (gtk3, pango, cairo, gdk-pixbuf,
    libGL, fontconfig, freetype, libXtst, libXxf86vm, …) have to be resolvable at runtime.
+   The .NET runtimes `dlopen` ICU, OpenSSL and zlib, which the same path provides.
 
 ## Licensing
 

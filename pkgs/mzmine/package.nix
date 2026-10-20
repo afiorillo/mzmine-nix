@@ -17,11 +17,14 @@
   gdk-pixbuf,
   glib,
   gtk3,
+  icu,
   libGL,
   libbsd,
+  openssl,
   pango,
   xdg-utils,
   xorg,
+  zlib,
 }:
 
 let
@@ -32,6 +35,8 @@ let
   #                            gdk-pixbuf, gio/gobject/glib/gthread, libXtst
   #   libprism_es2.so       -> libX11, libXxf86vm, libGL
   #   libjavafx_font_pango  -> pangoft2, pango, gobject, glib, fontconfig, freetype
+  # The self-contained .NET runtimes in lib/external_tools (ThermoRawFileParser,
+  # SCIEX Wiff2) dlopen ICU, OpenSSL and zlib.
   # The rest mirrors the upstream .deb's own Depends: field.
   runtimeLibs = [
     alsa-lib
@@ -42,8 +47,10 @@ let
     gdk-pixbuf
     glib
     gtk3
+    icu
     libGL
     libbsd
+    openssl
     pango
     stdenv.cc.cc.lib
     xorg.libX11
@@ -55,15 +62,16 @@ let
     xorg.libXtst
     xorg.libXxf86vm
     xorg.libxcb
+    zlib
   ];
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "mzmine";
-  version = "4.10.6";
+  version = "4.10.90";
 
   src = fetchurl {
     url = "https://github.com/mzmine/mzmine/releases/download/v${finalAttrs.version}/mzmine_${finalAttrs.version}_amd64.deb";
-    hash = "sha256-lUBnto9xAEWLaer0S8EwOKBD9nEsoS4QP31vAaCctb4=";
+    hash = "sha256-Wi25uw3WNcI0/8NTWT/cg7M2czi0+tmSYvk5pVScFBw=";
   };
 
   nativeBuildInputs = [
@@ -75,8 +83,11 @@ stdenv.mkDerivation (finalAttrs: {
 
   buildInputs = runtimeLibs;
 
-  # Baked into the RPATH of the shipped ELFs (launcher + bundled JDK 25 runtime).
+  # Baked into the RPATH of the shipped ELFs (launcher + bundled JDK 26 runtime).
   runtimeDependencies = runtimeLibs;
+
+  # CoreCLR's LTTng tracing provider; the runtime loads it only when available.
+  autoPatchelfIgnoreMissingDeps = [ "liblttng-ust.so.0" ];
 
   unpackPhase = ''
     runHook preUnpack
@@ -134,7 +145,7 @@ stdenv.mkDerivation (finalAttrs: {
       spectrometry (IMS) and MS imaging.
 
       This package repackages the official upstream Linux build, which ships its own
-      jlink'd JDK 25 runtime. It is the mzio "Pro" distribution and asks you to sign in
+      jlink'd JDK 26 runtime. It is the mzio "Pro" distribution and asks you to sign in
       with an mzio account on first launch; that is upstream behaviour, not a packaging
       artifact.
     '';
