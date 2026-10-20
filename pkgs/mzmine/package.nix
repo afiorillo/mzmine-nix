@@ -8,6 +8,7 @@
   copyDesktopItems,
   makeDesktopItem,
   nix-update-script,
+  wrapGAppsHook3,
 
   alsa-lib,
   atk,
@@ -16,6 +17,7 @@
   freetype,
   gdk-pixbuf,
   glib,
+  gsettings-desktop-schemas,
   gtk3,
   icu,
   libGL,
@@ -79,9 +81,17 @@ stdenv.mkDerivation (finalAttrs: {
     copyDesktopItems
     dpkg
     makeWrapper
+    wrapGAppsHook3
   ];
 
-  buildInputs = runtimeLibs;
+  # GTK's file chooser (behind every JavaFX FileChooser/DirectoryChooser) reads its
+  # settings through GSettings, and GLib aborts the JVM when no compiled schemas are on
+  # XDG_DATA_DIRS. wrapGAppsHook3 collects those paths (gtk3's own schemas plus
+  # gsettings-desktop-schemas), along with GIO modules and the gdk-pixbuf loaders.
+  buildInputs = runtimeLibs ++ [ gsettings-desktop-schemas ];
+
+  # Only collect gappsWrapperArgs; they are folded into our own wrapper in postFixup.
+  dontWrapGApps = true;
 
   # Baked into the RPATH of the shipped ELFs (launcher + bundled JDK 26 runtime).
   runtimeDependencies = runtimeLibs;
@@ -112,11 +122,15 @@ stdenv.mkDerivation (finalAttrs: {
     # The shipped lib/mzmine-mzmine.desktop hardcodes /opt/mzmine paths; we ship our own.
     rm -f "$out/share/mzmine/lib/mzmine-mzmine.desktop"
 
+    runHook postInstall
+  '';
+
+  # gappsWrapperArgs is only populated in preFixup, so the wrapper is made after it.
+  postFixup = ''
     makeWrapper "$out/share/mzmine/bin/mzmine" "$out/bin/mzmine" \
+      "''${gappsWrapperArgs[@]}" \
       --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath runtimeLibs}" \
       --prefix PATH : "${lib.makeBinPath [ xdg-utils ]}"
-
-    runHook postInstall
   '';
 
   desktopItems = [

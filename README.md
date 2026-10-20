@@ -76,7 +76,7 @@ repo, build-time network downloads that bypass Gradle's dependency graph
 (ThermoRawFileParser, SCIEX Clearcore), and proprietary vendor blobs in `external_tools/` —
 and still would not reproduce the released product.
 
-Two things are needed to make the image run on NixOS:
+Three things are needed to make the image run on NixOS:
 
 1. **`autoPatchelfHook`** over the ~74 shipped ELF files (the launcher,
    `libapplauncher.so`, the whole bundled JDK runtime, and the self-contained .NET
@@ -89,6 +89,10 @@ Two things are needed to make the image run on NixOS:
    pass through `autoPatchelfHook`, so their dependencies (gtk3, pango, cairo, gdk-pixbuf,
    libGL, fontconfig, freetype, libXtst, libXxf86vm, …) have to be resolvable at runtime.
    The .NET runtimes `dlopen` ICU, OpenSSL and zlib, which the same path provides.
+3. **GSettings schemas via `wrapGAppsHook3`.** JavaFX file and directory choosers are GTK
+   `GtkFileChooserDialog`s, which read `org.gtk.Settings.FileChooser` through GSettings;
+   with no compiled schemas on `XDG_DATA_DIRS`, GLib aborts the whole JVM. The hook's
+   environment (schemas, GIO modules, gdk-pixbuf loaders) is folded into the same wrapper.
 
 ## Licensing
 
